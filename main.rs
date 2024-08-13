@@ -80,7 +80,7 @@ struct Opt {
     #[arg(short,long,default_value=get_default_log_path().into_os_string())]
     file: PathBuf,
 }
-
+//date; time cargo run -- -g Movies -f /home/ec2-user/environment/dev/data/movie-50.rdf > ../log/ldr/movie-50.out;date
 //fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 #[::tokio::main]
@@ -98,7 +98,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Sync + Send + 'static>
         env::var("MYSQL_DBNAME").expect("env variable `MYSQL_DBNAME` should be set in profile");
 
     let region = "us-east-1";
-    let table_name = "RustGraph.dev.2";
+    let table_name = "RustGraph.dev.3";
 
     let Opt { graph, file } = Opt::parse();
 
@@ -212,6 +212,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Sync + Send + 'static>
     // start database load tasks (implemented as OS threads) - reads rdf data from channel
     println!("Start background services ... each reading from channel");
     let hdls = start_db_load_tasks(
+        table_name,
         arc_load_recvr,
         graph_sn,
         node_types,
@@ -292,6 +293,7 @@ impl Default for Node {
 type NODES = [Node; BATCH_SIZE];
 
 fn start_db_load_tasks(
+    table_name : &str,
     alr: Arc<std::sync::Mutex<std::sync::mpsc::Receiver<NODES>>>,
     graph_sn: &str,
     graph_types: Arc<types::NodeTypes>,
@@ -310,6 +312,7 @@ fn start_db_load_tasks(
     for i in 0..LOAD_THREADS {
         // as enclosed vars are moved into thread - take ownership of ref's and Arc's
         let ii: usize = i;
+        let tab_name = table_name.to_owned();
         let alr_c = alr.clone();
         let gr_types = graph_types.clone();
         let uuid_ch_ = uuid_ch.clone();
@@ -327,6 +330,7 @@ fn start_db_load_tasks(
             //td::thread::spawn( move || {    // task::spawn(move {
             process_node_batch(
                 ii,
+                tab_name,
                 alr_c,
                 graph_sname,
                 gr_types,
@@ -552,6 +556,7 @@ const DYNAMO_BATCH_SIZE: usize = 25;
 // ggty: gograph types
 fn process_node_batch<'a>(
     i: usize,
+    table_name: String,
     alr: Arc<std::sync::Mutex<std::sync::mpsc::Receiver<NODES>>>,
     graph_sn: String,
     graph_types: Arc<types::NodeTypes>,
@@ -590,7 +595,7 @@ fn process_node_batch<'a>(
                     bat_w_req.len()
                 );
                 if bat_w_req.len() > 0 {
-                    persist_batch(dynamo_client, bat_w_req, &retry_ch).await;
+                    persist_batch(dynamo_client, table_name.clone(), bat_w_req, &retry_ch).await;
                 }
             });
             break;
@@ -605,9 +610,9 @@ fn process_node_batch<'a>(
             }
             //println!("> process_node_batch process node {}", node.pkey.to_string());
             // get node attributes (n_attrs)
-            let node_ty = graph_types.get_node_type(&node.node_type);
+            let node_ty = graph_types.get(&node.node_type);
             //let types::block::AttrBlock(_0) = node_ty.get_attrs();
-            let attrs = node_ty.get_attrs();
+            //let attrs = node_ty.get_attrs();
 
             //                        attr_name
             let mut flat_rdf_map: HashMap<&str, FlattenRdf> = HashMap::new();
@@ -615,7 +620,7 @@ fn process_node_batch<'a>(
             for line in &node.lines {
                 found = false;
 
-                for attr in attrs {
+                for attr in node_ty {
                     // match attribute name against rdf predicate
                     if attr.name != line.p {
                         // spo
@@ -847,10 +852,10 @@ fn process_node_batch<'a>(
 				let put =  aws_sdk_dynamodb::types::PutRequest::builder();
                 let put = put.item("PK", AttributeValue::B(puid_b.clone()))
                 .item("SK", AttributeValue::S(sk.to_string()))
-                .item("graph",AttributeValue::S(graph_sn.clone()))
-                .item("isNode",AttributeValue::S("Y".to_owned()))
+                // .item("graph",AttributeValue::S(graph_sn.clone()))
+                // .item("isNode",AttributeValue::S("Y".to_owned())). // is it a node or OvB - maybe unecessary
                 .item("Ty",AttributeValue::S(node_ty.short_nm().to_owned()));
-                bat_w_req = save_item(&dynamo_client, bat_w_req, &retry_ch, put).await;
+                bat_w_req = save_item(&dynamo_client, table_name.clone(), bat_w_req, &retry_ch, put).await;
                 //
                 // dynamdb - put node scalar data
                 //
@@ -934,11 +939,11 @@ fn process_node_batch<'a>(
 				                "FTg"|"ftg" => {
 				                     putx.item("P", AttributeValue::S(pfx_attr_name))
 				                     .item("S", AttributeValue::S(nv.value_str.unwrap().to_owned()))
-				                     .item("E", AttributeValue::S("S".to_string()))
+				                     //.item("E", AttributeValue::S("S".to_string()))
 				                    }
 				                "FT"|"ft" => {
 				                    putx.item("S",AttributeValue::S(nv.value_str.unwrap().to_owned()) )
-				                    .item("E", AttributeValue::S("S".to_owned()))
+				                   // .item("E", AttributeValue::S("S".to_owned()))
 				                    }
 				                _ => {
 				                     putx.item("P", AttributeValue::S(pfx_attr_name))
@@ -946,7 +951,7 @@ fn process_node_batch<'a>(
 				                    }
 				            };
 				            puty.item("Ty", AttributeValue::S(pfx_node_type.to_string()))
-				            .item("TyA", AttributeValue::S("S".to_owned()))
+				           // .item("TyA", AttributeValue::S("S".to_owned()))
 				            }
 
 				        // TODO: "LS", "LN", "LB", "LBl" 
@@ -954,14 +959,14 @@ fn process_node_batch<'a>(
                             putx.item("B", AttributeValue::S(nv.value_str.unwrap().to_owned()))
                             .item("P", AttributeValue::S(pfx_attr_name))
                             .item("Ty", AttributeValue::S(pfx_node_type.to_string()))
-				            .item("TyA", AttributeValue::S("B".to_owned()))
+				            //.item("TyA", AttributeValue::S("B".to_owned()))
 				            }
 
                         "Bl" => {
                             putx.item("Bl", AttributeValue::S(nv.value_str.unwrap().to_owned()))
                             .item("P", AttributeValue::S(pfx_attr_name))
                             .item("Ty", AttributeValue::S(pfx_node_type.to_string()))
-				            .item("TyA", AttributeValue::S("Bl".to_owned()))
+				            //.item("TyA", AttributeValue::S("Bl".to_owned()))
 				            }
 
 				        "LS" => {
@@ -972,7 +977,7 @@ fn process_node_batch<'a>(
                             putx.item("LS", AttributeValue::L(ls))
                             .item("P", AttributeValue::S(pfx_attr_name))
                             .item("Ty", AttributeValue::S(pfx_node_type.to_string()))
-				            .item("TyA", AttributeValue::S("LS".to_owned()))
+				            //.item("TyA", AttributeValue::S("LS".to_owned()))
 				            }
 
 				        "LI" => {
@@ -983,7 +988,7 @@ fn process_node_batch<'a>(
                             putx.item("LI", AttributeValue::L(ls))
                             .item("P", AttributeValue::S(pfx_attr_name))
                             .item("Ty", AttributeValue::S(pfx_node_type.to_string()))
-				            .item("TyA", AttributeValue::S("LI".to_owned()))
+				            //.item("TyA", AttributeValue::S("LI".to_owned()))
 				            }
 
 				        "LF" => {
@@ -994,13 +999,13 @@ fn process_node_batch<'a>(
                             putx.item("LS", AttributeValue::L(ls))
                             .item("P", AttributeValue::S(pfx_attr_name))
                             .item("Ty", AttributeValue::S(pfx_node_type.to_string()))
-				            .item("TyA", AttributeValue::S("LF".to_owned()))
+				            //.item("TyA", AttributeValue::S("LF".to_owned()))
 				            }
 
                             _ => {panic!("Unexpected dt value [{}]",nv.ty.dt)}
 
                     };
-                                bat_w_req = save_item(&dynamo_client, bat_w_req, &retry_ch, put).await;
+                    bat_w_req = save_item(&dynamo_client,table_name.clone(), bat_w_req, &retry_ch, put).await;
                 }
                 bat_w_req
             });
@@ -1012,6 +1017,7 @@ fn process_node_batch<'a>(
 
 async fn save_item(
     dynamo_client: &DynamoClient,
+    table_name: String,
     mut bat_w_req: Vec<WriteRequest>,
     retry_ch: &tokio::sync::mpsc::Sender<Vec<aws_sdk_dynamodb::types::WriteRequest>>,
     put: PutRequestBuilder,
@@ -1025,19 +1031,20 @@ async fn save_item(
         }
     }
     if bat_w_req.len() == DYNAMO_BATCH_SIZE {
-        bat_w_req = persist_batch(dynamo_client, bat_w_req, retry_ch).await;
+        bat_w_req = persist_batch(dynamo_client, table_name, bat_w_req, retry_ch).await;
     }
     bat_w_req
 }
 
 async fn persist_batch(
     dynamo_client: &DynamoClient,
+    table_name: String,
     mut bat_w_req: Vec<WriteRequest>,
     retry_ch: &tokio::sync::mpsc::Sender<Vec<aws_sdk_dynamodb::types::WriteRequest>>,
 ) -> Vec<WriteRequest> {
     let bat_w_outp = dynamo_client
         .batch_write_item()
-        .request_items("RustGraph.dev.2", bat_w_req)
+        .request_items(table_name, bat_w_req)
         .send()
         .await;
 

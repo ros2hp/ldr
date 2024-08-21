@@ -55,7 +55,7 @@ use mysql_async::{IsolationLevel, TxOpts};
 //use lazy_static::lazy_static;
 
 const BATCH_SIZE: usize = 25; // nodes in batch
-const LOAD_THREADS: usize = 12;
+const LOAD_THREADS: usize = 6;
 
 fn get_default_log_path() -> PathBuf {
     let key = "DATA_DIR";
@@ -98,7 +98,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Sync + Send + 'static>
         env::var("MYSQL_DBNAME").expect("env variable `MYSQL_DBNAME` should be set in profile");
 
     let region = "us-east-1";
-    let table_name = "RustGraph.dev.3";
+    let table_name = "RustGraph.dev.2";
 
     let Opt { graph, file } = Opt::parse();
 
@@ -595,7 +595,7 @@ fn process_node_batch<'a>(
                     bat_w_req.len()
                 );
                 if bat_w_req.len() > 0 {
-                    persist_batch(dynamo_client, table_name.clone(), bat_w_req, &retry_ch).await;
+                    persist_batch(dynamo_client, table_name.as_str(), bat_w_req, &retry_ch).await;
                 }
             });
             break;
@@ -848,14 +848,17 @@ fn process_node_batch<'a>(
                 let mut sk =  graph_sn.clone();
                 sk.push('|');
                 sk.push_str("T#");
-
+                // ========================
+                // node type item (indexed)
+                // ========================
+                let ty_value=graph_sn.clone() + "|" + node_ty.short_nm();
 				let put =  aws_sdk_dynamodb::types::PutRequest::builder();
                 let put = put.item("PK", AttributeValue::B(puid_b.clone()))
                 .item("SK", AttributeValue::S(sk.to_string()))
                 // .item("graph",AttributeValue::S(graph_sn.clone()))
                 // .item("isNode",AttributeValue::S("Y".to_owned())). // is it a node or OvB - maybe unecessary
-                .item("Ty",AttributeValue::S(node_ty.short_nm().to_owned()));
-                bat_w_req = save_item(&dynamo_client, table_name.clone(), bat_w_req, &retry_ch, put).await;
+                .item("TyIx",AttributeValue::S(ty_value));
+                bat_w_req = save_item(&dynamo_client, table_name.as_str(), bat_w_req, &retry_ch, put).await;
                 //
                 // dynamdb - put node scalar data
                 //
@@ -1005,7 +1008,7 @@ fn process_node_batch<'a>(
                             _ => {panic!("Unexpected dt value [{}]",nv.ty.dt)}
 
                     };
-                    bat_w_req = save_item(&dynamo_client,table_name.clone(), bat_w_req, &retry_ch, put).await;
+                    bat_w_req = save_item(&dynamo_client,table_name.as_str(), bat_w_req, &retry_ch, put).await;
                 }
                 bat_w_req
             });
@@ -1017,7 +1020,7 @@ fn process_node_batch<'a>(
 
 async fn save_item(
     dynamo_client: &DynamoClient,
-    table_name: String,
+    table_name: &str,
     mut bat_w_req: Vec<WriteRequest>,
     retry_ch: &tokio::sync::mpsc::Sender<Vec<aws_sdk_dynamodb::types::WriteRequest>>,
     put: PutRequestBuilder,
@@ -1038,7 +1041,7 @@ async fn save_item(
 
 async fn persist_batch(
     dynamo_client: &DynamoClient,
-    table_name: String,
+    table_name: &str,
     mut bat_w_req: Vec<WriteRequest>,
     retry_ch: &tokio::sync::mpsc::Sender<Vec<aws_sdk_dynamodb::types::WriteRequest>>,
 ) -> Vec<WriteRequest> {

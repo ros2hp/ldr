@@ -12,7 +12,7 @@ MySQL is used as an intermediary storage facility providing both query and sort 
 
 | Load Program           |  Repo       |  Task                                                   |  Data Source           | Target Database |
 |-----------------------:|-------------|---------------------------------------------------------|------------------------|-----------------|
-|  RDF-Loader            |   ldr       | Load a RDF file into Dynamodb and MySQL                 |  RDF file              | Dynamodb, MySQL |
+| _RDF-Loader_           |   _ldr_     | _Load a RDF file into Dynamodb and MySQL_               |  _RDF file_            | _Dynamodb, MySQL_ |
 |  Attach                | rust-attach | Link child nodes to parent nodes                        |  MySQL           | Dynamodb        |
 |  Scalar Propagation    |    sp       | Propagate child scalar data into parent node and      |  MySQL        | Dynamodb     |
 |                        |             | generate reverse edge data                            |      |       |
@@ -37,29 +37,25 @@ MySQL is used as an intermediary storage facility providing both query and sort 
 
 A simplified view of SP is presented in the two schematics below. The first schematic describes the generation of reverse edge data  (child to parent as opposed to he more usual parent-child) which uses a dedicated cache to aggregate the reverse edges and a LRU algorithm to manage the persistance of data to Dynamodb.  The second schematic shows the simpler scalar propagation load.  Parent-child edges are held in MySQL while the scalar data is queried from Dynamodb for each child node and then saved back into Dynamodb where it is associated with the parent node. No cache is required to propagate the child data.
 
-         -----------
-         | RDF file |
-         -----------      ---------
-              |          |  MySQL  |
-              |           ---------
-              |              |
-              -->--|--<->----
+              -----------
+             | RDF file  |
+              -----------      
                    |
                    V
 
-                  Main                        (allocates batches of RDF records to Loaders)
+                  Main                       
 
                    |
-           ---------------------
+            -------------------
            |       |           |
            V       V           V
-
-         Loader  Loader . .  Loader            (Tokio Tasks or OS Threads ) 
-
-          ^  |    ^  |       ^  |
-          |  V    |  V       |  V
+                                                 ---------
+         Loader  Loader . .  Loader  --- < > ---|  MySQL  |   
+                                                 ---------
+           |       |           |
+           V       V           V
       ==============================
-      |        Dynamodb             |     
+     |          Dynamodb            |     
       ==============================
        
         Fig 1.  Ldr Schematic  

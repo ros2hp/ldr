@@ -14,8 +14,7 @@ MySQL is used as an intermediary storage facility providing both query and sort 
 |-----------------------:|-------------|---------------------------------------------------------|------------------------|-----------------|
 | _RDF-Loader_           |   _ldr_     | _Load a RDF file into Dynamodb and MySQL_               |  _RDF file_            | _Dynamodb, MySQL_ |
 |  Attach                | rust-attach | Link child nodes to parent nodes                        |  MySQL           | Dynamodb        |
-|  Scalar Propagation    |    sp       | Propagate child scalar data into parent node and      |  MySQL        | Dynamodb     |
-|                        |             | generate reverse edge data                            |      |       |
+|  Scalar Propagation    |    sp       | Propagate child scalar data into parent node and  generate reverse edge data     |  MySQL        | Dynamodb     |
 |  Double Propagation    |   dp        | Propagate grandchild scalar data into grandparent node* |  MySQL           | Dynamodb        |
 |  ElasticSearch         |   es        | Load data into ElasticSearch                            |  MySQL          | Dynamodb        |
 
@@ -43,10 +42,10 @@ A simplified view of SP is presented in the two schematics below. The first sche
                    |
                    V
 
-                  Main                       
-
+                  Main                                    ( Main reads batches of RDF records )
+                                                          ( and allocates to Loaders          )
                    |
-            -------------------
+            ----------- . . ---
            |       |           |
            V       V           V
                                                  ---------

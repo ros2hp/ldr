@@ -1,0 +1,119 @@
+{
+    "AttributeDefinitions": [
+        {
+            "AttributeName": "PK",
+            "AttributeType": "B"
+        },
+        {
+            "AttributeName": "SK",
+            "AttributeType": "S"
+        },
+        {
+            "AttributeName": "P",
+            "AttributeType": "S"
+        },
+        {
+            "AttributeName": "N",
+            "AttributeType": "N"
+        },
+        {
+            "AttributeName": "B",
+            "AttributeType": "B"
+        },
+        {
+            "AttributeName": "S",
+            "AttributeType": "S"
+        },
+        {
+            "AttributeName": "Ty",
+            "AttributeType": "S"
+        },
+        {
+            "AttributeName": "TyIx",
+            "AttributeType": "S"
+        }
+    ],
+    "TableName": "RustGraph_7",
+    "KeySchema": [
+        {
+            "AttributeName": "PK",
+            "KeyType": "HASH"
+        },
+        {
+            "AttributeName": "SK",
+            "KeyType": "RANGE"
+        }
+    ],
+    "BillingMode": "PAY_PER_REQUEST",
+    "GlobalSecondaryIndexes": [
+        {
+            "IndexName": "P_N",
+            "KeySchema": [
+                {
+                    "AttributeName": "P",
+                    "KeyType": "HASH"
+                },
+                {
+                    "AttributeName": "N",
+                    "KeyType": "RANGE"
+                }
+            ],
+            "Projection": {
+                "ProjectionType": "INCLUDE",
+                "NonKeyAttributes": [
+                    "Ty"
+                ]
+            }
+        },
+        {
+            "IndexName": "P_S",
+            "KeySchema": [
+                {
+                    "AttributeName": "P",
+                    "KeyType": "HASH"
+                },
+                {
+                    "AttributeName": "S",
+                    "KeyType": "RANGE"
+                }
+            ],
+            "Projection": {
+                "ProjectionType": "INCLUDE",
+                "NonKeyAttributes": [
+                    "Ty"
+                ]
+            }
+        },
+        {
+            "IndexName": "P_B",
+            "KeySchema": [
+                {
+                    "AttributeName": "P",
+                    "KeyType": "HASH"
+                },
+                {
+                    "AttributeName": "B",
+                    "KeyType": "RANGE"
+                }
+            ],
+            "Projection": {
+                "ProjectionType": "INCLUDE",
+                "NonKeyAttributes": [
+                    "Ty"
+                ]
+            }
+        },
+        {
+            "IndexName": "TyIx",
+            "KeySchema": [
+                {
+                    "AttributeName": "TyIX",
+                    "KeyType": "HASH"
+                }
+            ],
+            "Projection": {
+                "ProjectionType": "KEYS_ONLY"
+            }
+        }
+    ]
+}

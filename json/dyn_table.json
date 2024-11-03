@@ -25,15 +25,11 @@
             "AttributeType": "S"
         },
         {
-            "AttributeName": "Ty",
-            "AttributeType": "S"
-        },
-        {
             "AttributeName": "TyIx",
             "AttributeType": "S"
         }
     ],
-    "TableName": "RustGraph_7",
+    "TableName": "RustGraph_7_json",
     "KeySchema": [
         {
             "AttributeName": "PK",
@@ -107,7 +103,7 @@
             "IndexName": "TyIx",
             "KeySchema": [
                 {
-                    "AttributeName": "TyIX",
+                    "AttributeName": "TyIx",
                     "KeyType": "HASH"
                 }
             ],

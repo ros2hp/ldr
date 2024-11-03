@@ -29,8 +29,8 @@ MySQL is used as an intermediary storage facility providing both query and sort 
 
 * Loads a RDF file of unlimited size into Dynamodb.
 * Configured number of parallel Tokio tasks or OS threads (depending on version) to load into Dynamodb
-* Converts all identifiers (Subject & Object) to UUIDs on the fly.  
-* Fully implements Tokio Asynchronous runtime across all operations.
+* Converts all identifiers (RDF Subject & Object) to UUIDs (Version 4) on the fly.  
+* Implements Tokio Asynchronous runtime across all operations.
 
 ## Ldr Schematic ##
 
@@ -43,14 +43,15 @@ A simplified view of SP is presented in the two schematics below. The first sche
                    V
 
                   Main                                    ( Main reads batches of RDF records )
-                                                          ( and allocates to Loaders          )
+                                                          ( and sends to Loaders using single-)
+                   |                                      ( producer-multi-consumer pattern   )            )
                    |
             ----------- . . ---
            |       |           |
            V       V           V
-                                                 ---------
-         Loader  Loader . .  Loader  --- < > ---|  MySQL  |   
-                                                 ---------
+                                                 ---------     
+         Loader  Loader . .  Loader  --- < > ---|  MySQL  |   ( MySQL holds id mappings and parent-child data )
+                                                 ---------    ( used by all load programs)
            |       |           |
            V       V           V
       ==============================
